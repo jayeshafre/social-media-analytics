@@ -1,0 +1,75 @@
+# docker-compose.yml
+# ─────────────────────────────────────────────────────────
+# Orchestrates:
+#   1. postgres  — PostgreSQL database container
+#   2. api       — FastAPI backend container
+# ─────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+
+  # ─────────────────────────────────────────
+  # SERVICE 1: PostgreSQL Database
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine        # official lightweight PostgreSQL image
+    container_name: sma_postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: social_media_analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    ports:
+      - "5433:5432"                  # map host 5433 → container 5432
+                                     # (avoids conflict with your local PostgreSQL)
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data    # persist data between restarts
+      - ./sql/schema:/docker-entrypoint-initdb.d  # auto-run SQL on first start
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # SERVICE 2: FastAPI Backend
+  # ─────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+
+    container_name: sma_api
+    restart: unless-stopped
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      DB_HOST: postgres              # use service name — Docker's internal DNS
+      DB_PORT: 5432
+      DB_NAME: social_media_analytics
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      APP_ENV: production
+      APP_DEBUG: "False"
+
+    depends_on:
+      postgres:
+        condition: service_healthy   # wait for postgres to be ready before starting
+
+    volumes:
+      - ./data:/app/data             # mount data folder for CSV loading
+
+
+# ─────────────────────────────────────────
+# Named volume — data persists even if
+# container is stopped or removed
+# ─────────────────────────────────────────
+volumes:
+  postgres_data:

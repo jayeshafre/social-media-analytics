@@ -1,0 +1,11 @@
+# docker/.dockerignore
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.vscode/
+*.egg-info/
+.git/
+data/
+notebooks/
