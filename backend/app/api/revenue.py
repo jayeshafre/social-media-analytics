@@ -162,3 +162,95 @@ def get_top_campaigns(
 
 # Fix missing import
 from typing import Optional
+
+@router.get("/by-season-platform", response_model=APIResponse)
+def get_revenue_by_season_platform(db: Session = Depends(get_db)):
+    """
+    Revenue by season WITH platform breakdown.
+    Used by Power BI so platform slicer can cross-filter season chart.
+    """
+    query = text("""
+        SELECT
+            platform,
+            season,
+            COUNT(campaign_id)                           AS total_campaigns,
+            ROUND(SUM(ad_spend)::NUMERIC, 2)             AS total_ad_spend,
+            ROUND(SUM(revenue_generated)::NUMERIC, 2)    AS total_revenue,
+            ROUND(SUM(profit_generated)::NUMERIC, 2)     AS total_profit,
+            ROUND(AVG(roas)::NUMERIC, 4)                 AS avg_roas
+        FROM campaigns
+        GROUP BY platform, season
+        ORDER BY platform, total_revenue DESC
+    """)
+    rows = db.execute(query).mappings().all()
+    data = [dict(r) for r in rows]
+    return APIResponse(
+        success=True,
+        message="Revenue by season and platform fetched",
+        data=data,
+        total_records=len(data),
+    )
+
+
+@router.get("/by-category-platform", response_model=APIResponse)
+def get_revenue_by_category_platform(db: Session = Depends(get_db)):
+    """
+    Revenue by category WITH platform breakdown.
+    Used by Power BI so platform slicer can cross-filter category chart.
+    """
+    query = text("""
+        SELECT
+            cam.platform,
+            b.business_category,
+            COUNT(DISTINCT cam.business_id)               AS total_businesses,
+            COUNT(cam.campaign_id)                        AS total_campaigns,
+            ROUND(SUM(cam.revenue_generated)::NUMERIC, 2) AS total_revenue,
+            ROUND(SUM(cam.profit_generated)::NUMERIC, 2)  AS total_profit,
+            ROUND(AVG(cam.roi)::NUMERIC, 4)               AS avg_roi,
+            ROUND(AVG(cam.roas)::NUMERIC, 4)              AS avg_roas
+        FROM campaigns cam
+        JOIN businesses b ON cam.business_id = b.business_id
+        GROUP BY cam.platform, b.business_category
+        ORDER BY cam.platform, total_profit DESC
+    """)
+    rows = db.execute(query).mappings().all()
+    data = [dict(r) for r in rows]
+    return APIResponse(
+        success=True,
+        message="Revenue by category and platform fetched",
+        data=data,
+        total_records=len(data),
+    )
+
+
+@router.get("/campaigns-by-platform-year", response_model=APIResponse)
+def get_campaigns_by_platform_year(db: Session = Depends(get_db)):
+    """
+    Campaign counts with platform AND year.
+    Used by Power BI so both slicers filter the Total Campaigns card.
+    """
+    query = text("""
+        SELECT
+            cam.platform,
+            c.year,
+            c.month,
+            c.month_name,
+            c.quarter,
+            COUNT(cam.campaign_id)                        AS total_campaigns,
+            ROUND(SUM(cam.ad_spend)::NUMERIC, 2)          AS total_ad_spend,
+            ROUND(SUM(cam.revenue_generated)::NUMERIC, 2) AS total_revenue,
+            ROUND(SUM(cam.profit_generated)::NUMERIC, 2)  AS total_profit,
+            ROUND(AVG(cam.roas)::NUMERIC, 4)              AS avg_roas
+        FROM campaigns cam
+        JOIN calendar c ON cam.start_date = c.date
+        GROUP BY cam.platform, c.year, c.month, c.month_name, c.quarter
+        ORDER BY cam.platform, c.year, c.month
+    """)
+    rows = db.execute(query).mappings().all()
+    data = [dict(r) for r in rows]
+    return APIResponse(
+        success=True,
+        message="Campaigns by platform and year fetched",
+        data=data,
+        total_records=len(data),
+    )

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
         "Analytics API for Multi-Platform Ad Campaign Intelligence"
     )
 
+    # ── AI Layer ──────────────────────────────────────
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.1-8b-instant"
+
     @property
     def DATABASE_URL(self) -> str:
         return (
