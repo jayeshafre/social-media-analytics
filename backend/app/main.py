@@ -22,6 +22,10 @@ from app.api import (
     revenue, campaigns, platforms, audience, intelligence,
     engagement, ai_chat, ai_executive, ai_rag, ai_ml
 )
+from app.api import (
+    revenue, campaigns, platforms, audience, intelligence,
+    engagement, ai_chat, ai_executive, ai_rag, ai_ml, ai_agents
+)
 
 # ─────────────────────────────────────────
 # Logging setup
@@ -103,6 +107,7 @@ app.include_router(ai_chat.router, prefix="/api/v1")  # ← NEW
 app.include_router(ai_executive.router, prefix="/api/v1")  # ← NEW
 app.include_router(ai_rag.router, prefix="/api/v1")
 app.include_router(ai_ml.router, prefix="/api/v1")
+app.include_router(ai_agents.router, prefix="/api/v1")
 
 # ─────────────────────────────────────────
 # Startup / shutdown events
