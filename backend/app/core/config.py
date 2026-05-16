@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     DB_USER: str = "postgres"
     DB_PASSWORD: str = ""
 
+    # ── Redis / Memory ────────────────────────────────────────────
+    REDIS_HOST:        str = "localhost"
+    REDIS_PORT:        int = 6379
+    REDIS_PASSWORD:    str = ""
+    REDIS_TTL_SECONDS: int = 3600
     # App
     APP_ENV: str = "development"
     APP_DEBUG: bool = True

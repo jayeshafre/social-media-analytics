@@ -44,7 +44,7 @@ def get_embedding_model() -> SentenceTransformer:
 # ─────────────────────────────────────────────────────────────
 # Document paths
 # ─────────────────────────────────────────────────────────────
-DOCS_PATH = Path(__file__).resolve().parents[5] / "docs"
+DOCS_PATH = Path(__file__).resolve().parents[4] / "docs"
 
 DOCUMENTS = {
     "kpi_definitions": {

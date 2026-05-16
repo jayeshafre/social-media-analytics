@@ -17,6 +17,11 @@ from app.api import (
     revenue, campaigns, platforms, audience,
     intelligence, engagement, ai_chat, ai_executive, ai_rag
 )
+from app.ai.memory.redis_client import check_redis_connection
+from app.api import (
+    revenue, campaigns, platforms, audience, intelligence,
+    engagement, ai_chat, ai_executive, ai_rag, ai_ml
+)
 
 # ─────────────────────────────────────────
 # Logging setup
@@ -97,6 +102,7 @@ app.include_router(engagement.router,   prefix="/api/v1")
 app.include_router(ai_chat.router, prefix="/api/v1")  # ← NEW
 app.include_router(ai_executive.router, prefix="/api/v1")  # ← NEW
 app.include_router(ai_rag.router, prefix="/api/v1")
+app.include_router(ai_ml.router, prefix="/api/v1")
 
 # ─────────────────────────────────────────
 # Startup / shutdown events
@@ -118,13 +124,16 @@ async def shutdown_event():
 # ─────────────────────────────────────────
 # Health endpoints
 # ─────────────────────────────────────────
-@app.get("/", tags=["Health"])
-def root():
+@app.get("/health", tags=["Health"])
+def health_check():
+    db_ok    = check_db_connection()
+    redis_ok = check_redis_connection()
+
     return {
-        "app": settings.APP_TITLE,
-        "version": settings.API_VERSION,
-        "status": "running",
-        "docs": "/docs",
+        "api":         "healthy",
+        "database":    "connected" if db_ok    else "unreachable",
+        "redis":       "connected" if redis_ok else "unreachable",
+        "environment": settings.APP_ENV,
     }
 
 
