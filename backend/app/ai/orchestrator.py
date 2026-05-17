@@ -30,6 +30,7 @@ from app.ai.memory.conversation import (
     generate_session_id,
 )
 from app.ml.ml_context_builder import build_ml_context
+from app.ai.keyword_explainer import extract_terms
 
 logger = logging.getLogger("sma_api.orchestrator")
 
@@ -232,6 +233,8 @@ User Question: {message}
         history=history,
     )
 
+    terms_found = extract_terms(result["answer"])
+
     # Step 8: Save exchange to Redis
     saved = save_exchange(
         session_id=session_id,
@@ -260,4 +263,7 @@ User Question: {message}
         "conversation_length":    len(history) + 2,  # +2 for current exchange
         "memory_saved":           saved,
         "ml_context_generated": bool(ml_context),
+        "terms_explained":        terms_found,      
+        "terms_count":            len(terms_found),  
+
     }

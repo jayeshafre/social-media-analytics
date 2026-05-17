@@ -95,6 +95,8 @@ def ai_chat(
                 "recommendation_summary": result["recommendation_summary"],
                 "conversation_length":    result["conversation_length"],
                 "memory_saved":           result["memory_saved"],
+                "terms_explained": result["terms_explained"],
+                "terms_count":     result["terms_count"],
             },
         )
 

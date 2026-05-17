@@ -1,9 +1,8 @@
 /**
- * useChat.js — Updated to support history sidebar integration.
+ * useChat.js — Updated to pass terms_explained to message objects.
  *
- * Accepts an optional onExchange callback that is called after
- * every successful AI response. App.jsx uses this to upsert
- * entries into the sidebar history list.
+ * Every AI message now carries a `terms` array (may be empty).
+ * MessageBubble reads this to render the TermsGlossary section.
  */
 
 import { useState, useCallback, useRef } from 'react'
@@ -16,8 +15,8 @@ export function useChat({ onExchange } = {}) {
   const [error, setError]         = useState(null)
   const [lastMeta, setLastMeta]   = useState(null)
 
-  const bottomRef        = useRef(null)
-  const firstUserMsgRef  = useRef(null)
+  const bottomRef       = useRef(null)
+  const firstUserMsgRef = useRef(null)
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -57,6 +56,10 @@ export function useChat({ onExchange } = {}) {
         role:    'assistant',
         content: data.answer,
         ts:      new Date(),
+
+        // Terms glossary — array from backend, empty array if absent
+        terms: data.terms_explained || [],
+
         meta: {
           intent:     data.intent,
           platform:   data.platform_detected,
@@ -67,6 +70,7 @@ export function useChat({ onExchange } = {}) {
           ragFetched: data.rag_context_retrieved,
           recCount:   data.recommendations_count,
           turnCount:  data.conversation_length,
+          termsCount: data.terms_count || 0,
         },
       }
 
@@ -104,14 +108,13 @@ export function useChat({ onExchange } = {}) {
     firstUserMsgRef.current = null
   }, [sessionId])
 
-  // Resume a past session from the sidebar
   const loadSession = useCallback((entry) => {
-    // Clear current without hitting Redis (we're switching, not ending)
     setMessages([{
       id:      Date.now(),
       role:    'assistant',
       content: `Resuming: **"${entry.title}"**\n\nType your next question to continue this conversation.`,
       ts:      new Date(),
+      terms:   [],
       meta:    null,
     }])
     setSessionId(entry.id)

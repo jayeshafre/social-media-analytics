@@ -17,6 +17,7 @@ from app.ai.intent_detector import detect_intent
 from app.ai.memory.conversation import save_exchange, generate_session_id
 from app.agents.agent_router import run_agents
 from app.schemas.responses import APIResponse
+from app.ai.keyword_explainer import extract_terms
 
 logger = logging.getLogger("sma_api.ai_agents")
 
@@ -107,6 +108,9 @@ def agent_analyze(
                 "answer":            result["answer"],
                 "session_id":        session_id,
                 "intent":            intent.intent,
+
+                "terms_explained":   extract_terms(result["answer"]),
+                
                 "platform_detected": intent.platform,
                 "agents_activated":  result["agents_activated"],
                 "agents_used":       result["agents_list"],

@@ -1,33 +1,67 @@
-# ─────────────────────────────────────────────────────────
-# Stage 1: Base image
-# We use Python 3.11 slim — smaller image, faster builds
-# ─────────────────────────────────────────────────────────
-FROM python:3.11-slim
+# ─────────────────────────────────────────────────────────────
+# Stage 1: Builder
+# Install dependencies in isolated layer
+# ─────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS builder
 
-# Set working directory inside container
-WORKDIR /app
+WORKDIR /build
 
-# Environment variables — prevents Python from writing .pyc files
-# and buffers stdout/stderr (so logs appear immediately)
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Install system dependencies needed for psycopg2
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
+    build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies first
-# (Docker caches this layer — only re-runs if requirements.txt changes)
+# Copy and install Python dependencies
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Copy the full backend app code
+# ─────────────────────────────────────────────────────────────
+# Stage 2: Production image
+# Minimal image with only what's needed to run
+# ─────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS production
+
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages \
+    /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin \
+    /usr/local/bin
+
+# Copy application code
 COPY backend/ .
 
-# Expose port 8000 for FastAPI
+# Copy docs for RAG embedding
+COPY docs/ /docs/
+
+# Create non-root user — never run as root in production
+RUN useradd --create-home --shell /bin/bash appuser && \
+    mkdir -p /data/chroma_db && \
+    chown -R appuser:appuser /app /data /docs
+
+USER appuser
+
+# Health check — Docker monitors this
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
 EXPOSE 8000
 
-# Start the FastAPI server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Production startup command
+# 4 workers for production (adjust based on CPU cores)
+CMD ["uvicorn", "app.main:app", \
+    "--host", "0.0.0.0", \
+    "--port", "8000", \
+    "--workers", "4", \
+    "--log-level", "info", \
+    "--no-access-log"]

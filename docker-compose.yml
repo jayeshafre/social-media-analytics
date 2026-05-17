@@ -1,75 +1,94 @@
-# docker-compose.yml
-# ─────────────────────────────────────────────────────────
-# Orchestrates:
-#   1. postgres  — PostgreSQL database container
-#   2. api       — FastAPI backend container
-# ─────────────────────────────────────────────────────────
-
 version: "3.9"
 
 services:
 
-  # ─────────────────────────────────────────
-  # SERVICE 1: PostgreSQL Database
-  # ─────────────────────────────────────────
+  # ─────────────────────────────────────────────
+  # PostgreSQL — your analytics warehouse
+  # ─────────────────────────────────────────────
   postgres:
-    image: postgres:15-alpine        # official lightweight PostgreSQL image
+    image: postgres:15-alpine
     container_name: sma_postgres
+    environment:
+      POSTGRES_DB:       ${DB_NAME}
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/schema:/docker-entrypoint-initdb.d   # auto-runs on first start
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
     restart: unless-stopped
 
-    environment:
-      POSTGRES_DB: social_media_analytics
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-
-    ports:
-      - "5433:5432"                  # map host 5433 → container 5432
-                                     # (avoids conflict with your local PostgreSQL)
-
+  # ─────────────────────────────────────────────
+  # Redis — conversation memory + caching
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: sma_redis
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
     volumes:
-      - postgres_data:/var/lib/postgresql/data    # persist data between restarts
-      - ./sql/schema:/docker-entrypoint-initdb.d  # auto-run SQL on first start
-
+      - redis_data:/data
+    ports:
+      - "6379:6379"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout:  5s
+      retries:  5
+    restart: unless-stopped
 
-  # ─────────────────────────────────────────
-  # SERVICE 2: FastAPI Backend
-  # ─────────────────────────────────────────
+  # ─────────────────────────────────────────────
+  # FastAPI — AI analytics backend
+  # ─────────────────────────────────────────────
   api:
     build:
-      context: .
+      context:    .
       dockerfile: docker/Dockerfile
-
     container_name: sma_api
-    restart: unless-stopped
-
+    environment:
+      # Database
+      DB_HOST:     postgres
+      DB_PORT:     5432
+      DB_NAME:     ${DB_NAME}
+      DB_USER:     ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      # Redis
+      REDIS_HOST:     redis
+      REDIS_PORT:     6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      # AI
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL:   ${GROQ_MODEL:-llama-3.1-8b-instant}
+      # App
+      APP_ENV:   production
+      APP_DEBUG: "false"
+      API_KEYS:  ${API_KEYS:-}
+    volumes:
+      - chroma_data:/data/chroma_db    # persist vector embeddings
     ports:
       - "8000:8000"
-
-    environment:
-      DB_HOST: postgres              # use service name — Docker's internal DNS
-      DB_PORT: 5432
-      DB_NAME: social_media_analytics
-      DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD}
-      APP_ENV: production
-      APP_DEBUG: "False"
-
     depends_on:
       postgres:
-        condition: service_healthy   # wait for postgres to be ready before starting
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout:  10s
+      retries:  3
+    restart: unless-stopped
 
-    volumes:
-      - ./data:/app/data             # mount data folder for CSV loading
-
-
-# ─────────────────────────────────────────
-# Named volume — data persists even if
-# container is stopped or removed
-# ─────────────────────────────────────────
 volumes:
   postgres_data:
+  redis_data:
+  chroma_data:

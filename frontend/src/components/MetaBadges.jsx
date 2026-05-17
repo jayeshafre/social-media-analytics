@@ -2,8 +2,7 @@
  * MetaBadges.jsx
  *
  * Small pill badges rendered below each AI response.
- * Shows: intent category, platform detected, confidence, token count.
- * Gives the user visibility into what the AI "understood" about their question.
+ * Shows: intent, platform, confidence, kpi, rag, recs, terms, tokens.
  */
 
 const INTENT_COLORS = {
@@ -24,83 +23,96 @@ const PLATFORM_ICONS = {
   WhatsApp:  '💬',
 }
 
+function Badge({ bg, text, border, children }) {
+  return (
+    <span style={{
+      display:         'inline-flex',
+      alignItems:      'center',
+      gap:             '4px',
+      padding:         '2px 8px',
+      borderRadius:    '999px',
+      fontSize:        '10px',
+      fontFamily:      'DM Mono, monospace',
+      letterSpacing:   '0.04em',
+      backgroundColor: bg,
+      color:           text,
+      border:          `1px solid ${border}`,
+      whiteSpace:      'nowrap',
+    }}>
+      {children}
+    </span>
+  )
+}
+
 export default function MetaBadges({ meta }) {
   if (!meta) return null
 
-  const colors = INTENT_COLORS[meta.intent] || INTENT_COLORS.general
+  const colors      = INTENT_COLORS[meta.intent] || INTENT_COLORS.general
   const platformIcon = meta.platform ? PLATFORM_ICONS[meta.platform] || '🌐' : null
-
-  const badgeStyle = (bg, text, border) => ({
-    display:         'inline-flex',
-    alignItems:      'center',
-    gap:             '4px',
-    padding:         '2px 8px',
-    borderRadius:    '999px',
-    fontSize:        '10px',
-    fontFamily:      'DM Mono, monospace',
-    letterSpacing:   '0.04em',
-    backgroundColor: bg,
-    color:           text,
-    border:          `1px solid ${border}`,
-    whiteSpace:      'nowrap',
-  })
 
   return (
     <div style={{
       display:    'flex',
       flexWrap:   'wrap',
       gap:        '6px',
-      marginTop:  '10px',
-      paddingTop: '8px',
+      marginTop:  '12px',
+      paddingTop: '10px',
       borderTop:  '1px solid rgba(255,255,255,0.06)',
     }}>
 
       {/* Intent */}
-      <span style={badgeStyle(colors.bg, colors.text, colors.border)}>
+      <Badge bg={colors.bg} text={colors.text} border={colors.border}>
         ◈ {meta.intent}
-      </span>
+      </Badge>
 
       {/* Platform */}
       {meta.platform && (
-        <span style={badgeStyle('#0f1923', '#94a3b8', '#1e3a5f')}>
+        <Badge bg="#0f1923" text="#94a3b8" border="#1e3a5f">
           {platformIcon} {meta.platform}
-        </span>
+        </Badge>
       )}
 
       {/* Confidence */}
-      <span style={badgeStyle(
-        meta.confidence === 'high' ? '#0d2b1a' : '#2a1a0e',
-        meta.confidence === 'high' ? '#4ade80' : '#fb923c',
-        meta.confidence === 'high' ? '#166534' : '#9a3412',
-      )}>
+      <Badge
+        bg={meta.confidence === 'high' ? '#0d2b1a' : '#2a1a0e'}
+        text={meta.confidence === 'high' ? '#4ade80' : '#fb923c'}
+        border={meta.confidence === 'high' ? '#166534' : '#9a3412'}
+      >
         {meta.confidence === 'high' ? '⬤' : '◉'} {meta.confidence}
-      </span>
+      </Badge>
 
       {/* KPI data */}
       {meta.kpiFetched && (
-        <span style={badgeStyle('#0d1f2e', '#67e8f9', '#164e63')}>
+        <Badge bg="#0d1f2e" text="#67e8f9" border="#164e63">
           ▦ kpi data
-        </span>
+        </Badge>
       )}
 
       {/* RAG */}
       {meta.ragFetched && (
-        <span style={badgeStyle('#1a0d2e', '#a78bfa', '#4c1d95')}>
+        <Badge bg="#1a0d2e" text="#a78bfa" border="#4c1d95">
           ◎ rag
-        </span>
+        </Badge>
       )}
 
       {/* Recommendations */}
       {meta.recCount > 0 && (
-        <span style={badgeStyle('#1a1a0d', '#fbbf24', '#78350f')}>
+        <Badge bg="#1a1a0d" text="#fbbf24" border="#78350f">
           ✦ {meta.recCount} rec{meta.recCount !== 1 ? 's' : ''}
-        </span>
+        </Badge>
+      )}
+
+      {/* Terms explained */}
+      {meta.termsCount > 0 && (
+        <Badge bg="#1a150a" text="#fcd34d" border="#92400e">
+          ◉ {meta.termsCount} term{meta.termsCount !== 1 ? 's' : ''}
+        </Badge>
       )}
 
       {/* Tokens */}
-      <span style={badgeStyle('#111', '#475569', '#1e293b')}>
+      <Badge bg="#111" text="#475569" border="#1e293b">
         {meta.tokens?.toLocaleString()} tokens
-      </span>
+      </Badge>
     </div>
   )
 }
