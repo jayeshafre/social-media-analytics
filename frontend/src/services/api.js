@@ -36,3 +36,52 @@ export async function checkHealth() {
   const response = await axios.get('http://localhost:8000/health')
   return response.data
 }
+
+// ── Dashboard API calls ───────────────────────────────────────
+
+export async function fetchRevenueByPlatform() {
+  const response = await client.get('/revenue/by-platform')
+  return response.data.data
+}
+
+export async function fetchMonthlyRevenue() {
+  const response = await client.get('/revenue/monthly-trend')
+  return response.data.data
+}
+
+export async function fetchCampaignPerformance(platform = null) {
+  const params = platform ? { platform } : {}
+  const response = await client.get('/campaigns/performance-by-type', { params })
+  return response.data.data
+}
+
+export async function fetchPlatformComparison() {
+  const response = await client.get('/platform/comparison')
+  return response.data.data
+}
+
+export async function fetchAudienceAgeGroups() {
+  const response = await client.get('/audience/by-age-group')
+  return response.data.data
+}
+
+export async function fetchConversionFunnel() {
+  const response = await client.get('/intelligence/conversion-funnel')
+  return response.data.data
+}
+
+export async function fetchSmartAlerts() {
+  const response = await client.get('/ai/smart-alerts')
+  return response.data.data
+}
+
+export async function fetchExecutiveSummary() {
+  const response = await client.get('/ai/executive-summary')
+  return response.data.data
+}
+
+export async function fetchMLForecast(platform = null) {
+  const params = platform ? { platform } : {}
+  const response = await client.get('/ai/ml/forecast', { params })
+  return response.data.data
+}
