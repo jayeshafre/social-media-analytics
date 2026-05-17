@@ -88,8 +88,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ─────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_origins=["http://localhost:5173"],  
+    allow_methods=["GET", "POST", "DELETE"],  
     allow_headers=["*"],
 )
 

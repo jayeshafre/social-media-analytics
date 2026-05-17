@@ -1,0 +1,227 @@
+/* index.css — Global styles for full-screen chat layout */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050a12;
+}
+
+/* ── Scrollbar styling ─────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0f2744;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1e3a5f;
+}
+
+/* ── Keyframe animations ───────────────────────── */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes subtlePulse {
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ── AI Markdown rendering ─────────────────────── */
+.ai-markdown {
+  color: #cbd5e1;
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.ai-markdown p {
+  margin-bottom: 12px;
+}
+
+.ai-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-markdown strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.ai-markdown em {
+  color: #94a3b8;
+}
+
+.ai-markdown ul,
+.ai-markdown ol {
+  padding-left: 22px;
+  margin-bottom: 12px;
+}
+
+.ai-markdown li {
+  margin-bottom: 5px;
+  color: #cbd5e1;
+}
+
+.ai-markdown code {
+  font-family: 'DM Mono', monospace;
+  font-size: 12.5px;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: #38bdf8;
+}
+
+.ai-markdown pre {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+
+.ai-markdown pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.ai-markdown h1,
+.ai-markdown h2,
+.ai-markdown h3 {
+  color: #e2e8f0;
+  font-family: 'Syne', sans-serif;
+  margin-bottom: 8px;
+  margin-top: 16px;
+}
+
+.ai-markdown h1 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ai-markdown h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ai-markdown h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ai-markdown blockquote {
+  border-left: 3px solid #0ea5e9;
+  padding-left: 14px;
+  color: #64748b;
+  font-style: italic;
+  margin-bottom: 12px;
+}
+
+.ai-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  font-family: 'DM Mono', monospace;
+}
+
+.ai-markdown th {
+  background: rgba(14, 165, 233, 0.1);
+  color: #38bdf8;
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(14, 165, 233, 0.2);
+  font-weight: 500;
+}
+
+.ai-markdown td {
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+}
+
+.ai-markdown tr:last-child td {
+  border-bottom: none;
+}
+
+.ai-markdown hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  margin: 16px 0;
+}
