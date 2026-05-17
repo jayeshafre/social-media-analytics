@@ -6,16 +6,37 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
+# Environment variables for faster/cleaner installs
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    gcc \
     libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python dependencies
+# Copy requirements
 COPY backend/requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+
+# Install system SSL/cert packages
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && update-ca-certificates
+
+# Upgrade packaging tools
+RUN pip install --upgrade pip setuptools wheel
+
+# Install CPU-only torch first
+RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install dependencies
+RUN pip install --default-timeout=300 --no-cache-dir -r requirements.txt
 
 # ─────────────────────────────────────────────────────────────
 # Stage 2: Production image

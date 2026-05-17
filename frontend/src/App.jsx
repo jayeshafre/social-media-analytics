@@ -1,23 +1,21 @@
 /**
- * App.jsx — Full-screen layout with Dashboard toggle.
+ * App.jsx — Full-screen layout with Superset Dashboard.
  *
- * Main area renders either:
- *   - ChatPanel   (default)
- *   - DashboardView (when showDashboard === true)
+ * Dashboard view embeds Apache Superset via iframe.
+ * Superset runs at http://localhost:8088
  *
- * The sidebar always stays visible.
- * The toggle button at the bottom of the sidebar switches views.
+ * HOW TO GET YOUR EMBED URL (after Superset is running):
+ * 1. Open http://localhost:8088
+ * 2. Login: admin / admin
+ * 3. Build your dashboard
+ * 4. Click the dashboard → ··· menu → "Embed Dashboard"
+ * 5. Copy the UUID shown
+ * 6. Paste it into SUPERSET_DASHBOARD_UUID below
  *
- * ┌──────────────┬────────────────────────────────────┐
- * │   Sidebar    │  ChatPanel  OR  DashboardView       │
- * │  (260px)     │  (flex: 1)                          │
- * │              │                                     │
- * │  [New Chat]  │                                     │
- * │  history...  │                                     │
- * │              │                                     │
- * │  [Dashboard] │                                     │
- * │  ● connected │                                     │
- * └──────────────┴────────────────────────────────────┘
+ * The embed URL format is:
+ * http://localhost:8088/superset/dashboard/<UUID>/?standalone=3
+ *
+ * standalone=3 hides Superset navbar — shows only the dashboard.
  */
 
 import { useState, useCallback } from 'react'
@@ -26,17 +24,22 @@ import { useChatHistory } from './hooks/useChatHistory'
 import Sidebar from './components/Sidebar'
 import ChatPanel from './components/ChatPanel'
 
-// ── Dashboard view ────────────────────────────────────────────
-// Replace POWERBI_EMBED_URL with your actual embed URL.
-// Format: https://app.powerbi.com/reportEmbed?reportId=XXX&autoAuth=true
-//
-// To get this URL from Power BI:
-//   File → Publish to web → Get embed link (iFrame option)
-const POWERBI_EMBED_URL = ''  // ← paste your URL here
+// ── Superset config ───────────────────────────────────────────
+// After setting up Superset and creating a dashboard,
+// paste your dashboard UUID here.
+// Leave empty to show the setup instructions placeholder.
+const SUPERSET_DASHBOARD_UUID = ''  // e.g. 'abc123-def456-...'
 
+const SUPERSET_BASE = 'http://localhost:8088'
+
+// standalone=3 → hides nav, tabs, filters bar — clean embed
+const SUPERSET_EMBED_URL = SUPERSET_DASHBOARD_UUID
+  ? `${SUPERSET_BASE}/superset/dashboard/${SUPERSET_DASHBOARD_UUID}/?standalone=3&expand_filters=0`
+  : ''
+
+// ── Dashboard view ────────────────────────────────────────────
 function DashboardView() {
-  if (!POWERBI_EMBED_URL) {
-    // Placeholder shown until the real URL is configured
+  if (!SUPERSET_EMBED_URL) {
     return (
       <div style={{
         flex:           1,
@@ -46,7 +49,7 @@ function DashboardView() {
         alignItems:     'center',
         justifyContent: 'center',
         background:     'linear-gradient(160deg, #080d18 0%, #050a12 50%, #080d18 100%)',
-        gap:            '20px',
+        gap:            '24px',
         position:       'relative',
         overflow:       'hidden',
       }}>
@@ -63,23 +66,18 @@ function DashboardView() {
         }} />
 
         {/* Icon */}
-        <div style={{
-          fontSize:   '56px',
-          opacity:    0.15,
-          zIndex:     1,
-          lineHeight: 1,
-        }}>▦</div>
+        <div style={{ fontSize: '52px', opacity: 0.12, zIndex: 1 }}>▦</div>
 
-        {/* Text */}
+        {/* Title */}
         <div style={{ textAlign: 'center', zIndex: 1 }}>
           <p style={{
             color:      '#1e3a5f',
             fontFamily: 'Syne, sans-serif',
-            fontWeight: 600,
-            fontSize:   '16px',
-            margin:     '0 0 10px',
+            fontWeight: 700,
+            fontSize:   '18px',
+            margin:     '0 0 8px',
           }}>
-            Power BI Dashboard
+            Apache Superset Dashboard
           </p>
           <p style={{
             color:      '#0f2744',
@@ -87,53 +85,121 @@ function DashboardView() {
             fontSize:   '11px',
             lineHeight: 1.8,
           }}>
-            Open <code style={{ color: '#1e3a5f' }}>src/App.jsx</code><br />
-            and set <code style={{ color: '#1e3a5f' }}>POWERBI_EMBED_URL</code><br />
-            to your Power BI embed link.
+            Follow the setup steps below to connect your dashboard.
           </p>
         </div>
 
-        {/* Step hint */}
-        <div style={{
-          background:   'rgba(14,165,233,0.06)',
-          border:       '1px solid rgba(14,165,233,0.12)',
-          borderRadius: '12px',
-          padding:      '14px 20px',
-          zIndex:       1,
-          maxWidth:     '440px',
-          width:        '100%',
-          margin:       '0 24px',
-        }}>
-          <p style={{
-            color:      '#1e3a5f',
-            fontFamily: 'DM Mono, monospace',
-            fontSize:   '11px',
-            lineHeight: 1.8,
-            margin:     0,
+        {/* Setup steps */}
+        {[
+          {
+            step: '01',
+            title: 'Start Superset',
+            code: 'docker-compose up superset',
+            note: 'Wait ~60 seconds for first-time init',
+          },
+          {
+            step: '02',
+            title: 'Open Superset & Login',
+            code: 'http://localhost:8088',
+            note: 'Username: admin  /  Password: admin',
+          },
+          {
+            step: '03',
+            title: 'Connect your PostgreSQL database',
+            code: 'Settings → Database Connections → + Database',
+            note: 'postgresql+psycopg2://postgres:PASSWORD@localhost:5433/social_media_analytics',
+          },
+          {
+            step: '04',
+            title: 'Create charts & a dashboard',
+            code: 'Charts → + Chart → pick your table → build',
+            note: 'Use campaigns, revenue, engagement_metrics tables',
+          },
+          {
+            step: '05',
+            title: 'Get the embed UUID',
+            code: 'Dashboard → ··· menu → Embed Dashboard → copy UUID',
+            note: 'Paste UUID into SUPERSET_DASHBOARD_UUID in src/App.jsx',
+          },
+        ].map(({ step, title, code, note }) => (
+          <div key={step} style={{
+            background:   'rgba(14,165,233,0.04)',
+            border:       '1px solid rgba(14,165,233,0.1)',
+            borderRadius: '12px',
+            padding:      '14px 20px',
+            zIndex:       1,
+            width:        '100%',
+            maxWidth:     '520px',
+            margin:       '0 24px',
           }}>
-            <span style={{ color: '#38bdf8' }}>How to get your embed URL:</span><br />
-            1. Open your report in Power BI Service<br />
-            2. File → Embed report → Website or portal<br />
-            3. Copy the <strong style={{ color: '#7dd3fc' }}>src</strong> URL from the iframe code<br />
-            4. Paste it into POWERBI_EMBED_URL in App.jsx
-          </p>
-        </div>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+              <span style={{
+                color:         '#0ea5e9',
+                fontFamily:    'DM Mono, monospace',
+                fontSize:      '11px',
+                fontWeight:    700,
+                opacity:       0.6,
+                flexShrink:    0,
+                paddingTop:    '2px',
+              }}>
+                {step}
+              </span>
+              <div>
+                <p style={{
+                  color:      '#334155',
+                  fontFamily: 'Syne, sans-serif',
+                  fontWeight: 600,
+                  fontSize:   '12px',
+                  margin:     '0 0 4px',
+                }}>
+                  {title}
+                </p>
+                <code style={{
+                  display:      'block',
+                  color:        '#38bdf8',
+                  fontFamily:   'DM Mono, monospace',
+                  fontSize:     '11px',
+                  background:   'rgba(14,165,233,0.08)',
+                  border:       '1px solid rgba(14,165,233,0.15)',
+                  borderRadius: '6px',
+                  padding:      '4px 8px',
+                  marginBottom: '4px',
+                  wordBreak:    'break-all',
+                }}>
+                  {code}
+                </code>
+                <p style={{
+                  color:      '#0f2744',
+                  fontFamily: 'DM Mono, monospace',
+                  fontSize:   '10px',
+                  margin:     0,
+                  lineHeight: 1.6,
+                }}>
+                  {note}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     )
   }
 
+  // Real Superset embed — shown once UUID is configured
   return (
     <div style={{ flex: 1, height: '100vh', overflow: 'hidden' }}>
       <iframe
         title="Marketing Intelligence Dashboard"
-        src={POWERBI_EMBED_URL}
+        src={SUPERSET_EMBED_URL}
         style={{
-          width:  '100%',
-          height: '100%',
-          border: 'none',
+          width:   '100%',
+          height:  '100%',
+          border:  'none',
           display: 'block',
         }}
         allowFullScreen
+        // Required for Superset session cookie to work in iframe
+        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
       />
     </div>
   )
@@ -162,12 +228,12 @@ export default function App() {
 
   const handleNewChat = useCallback(() => {
     clearConversation()
-    setShowDashboard(false)   // always switch to chat on new conversation
+    setShowDashboard(false)
   }, [clearConversation])
 
   const handleSelectChat = useCallback((entry) => {
     loadSession(entry)
-    setShowDashboard(false)   // clicking a history item opens chat view
+    setShowDashboard(false)
   }, [loadSession])
 
   const handleDeleteChat = useCallback((id) => {
@@ -181,7 +247,6 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden' }}>
-
       <Sidebar
         history={history}
         activeSessionId={sessionId}
@@ -192,7 +257,6 @@ export default function App() {
         onToggleDashboard={handleToggleDashboard}
       />
 
-      {/* Main area — swaps between chat and dashboard */}
       {showDashboard
         ? <DashboardView />
         : (
