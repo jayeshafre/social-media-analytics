@@ -189,7 +189,8 @@ export default function DashboardView() {
     activePlatform, activeYear, activeTab,
     isLoading, lastRefreshed, error,
     platforms, years,
-    revenueByPlatform, monthlyRevenue, revenueByCategory,
+    revenueByPlatform, monthlyRevenue, monthlyRevenueForChart,
+    revenueByCategory, revenueByCategoryForChart,
     campaignData, campaignByObjective, influencerData,
     audienceAge, audienceDevice, audienceGender,
     funnelData, cacData, yoyData, refundData,
@@ -371,7 +372,9 @@ export default function DashboardView() {
                     kpis={kpis}
                     revenueByPlatform={revenueByPlatform}
                     monthlyRevenue={monthlyRevenue}
+                    monthlyRevenueForChart={monthlyRevenueForChart}
                     revenueByCategory={revenueByCategory}
+                    revenueByCategoryForChart={revenueByCategoryForChart}
                     forecast={forecast}
                     openPanel={openPanel}
                     activePlatform={activePlatform}

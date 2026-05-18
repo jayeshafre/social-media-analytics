@@ -155,9 +155,12 @@ function MonthlyAreaChart({ data }) {
   const ref = useRef(null)
   const chartRef = useRef(null)
 
+  // Stable cache key — forces chart destroy+recreate when platform/year changes
+  const dataKey = data?.map(r => `${r.year}-${r.month}-${r.monthly_revenue}`).join('|') || ''
+
   useEffect(() => {
     if (!ref.current || !data?.length || !window.Chart) return
-    if (chartRef.current) chartRef.current.destroy()
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
 
     const labels  = data.map(r => r.month_name?.slice(0, 3) || '')
     const revenue = data.map(r => parseFloat((parseFloat(r.monthly_revenue) / 1e6).toFixed(2)))
@@ -214,7 +217,7 @@ function MonthlyAreaChart({ data }) {
       },
     })
     return () => chartRef.current?.destroy()
-  }, [data])
+  }, [dataKey])
 
   return (
     <>
@@ -241,9 +244,11 @@ function CategoryBarChart({ data }) {
   const ref = useRef(null)
   const chartRef = useRef(null)
 
+  const dataKey = data?.map(r => `${r.business_category}-${r.total_revenue}`).join('|') || ''
+
   useEffect(() => {
     if (!ref.current || !data?.length || !window.Chart) return
-    if (chartRef.current) chartRef.current.destroy()
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
 
     const sorted = [...data].sort((a, b) => parseFloat(b.total_revenue) - parseFloat(a.total_revenue))
     const top10  = sorted.slice(0, 10)
@@ -282,7 +287,7 @@ function CategoryBarChart({ data }) {
       },
     })
     return () => chartRef.current?.destroy()
-  }, [data])
+  }, [dataKey])
 
   return (
     <div style={{ position: 'relative', height: `${Math.max(200, (data?.length || 5) * 28)}px` }}>
@@ -378,6 +383,7 @@ function KeyInsights({ revenueByPlatform, monthlyRevenue, revenueByCategory }) {
 export default function ExecutiveTab({
   kpis, revenueByPlatform, monthlyRevenue, revenueByCategory,
   forecast, openPanel, activePlatform = 'All', activeYear = 'All',
+  monthlyRevenueForChart, revenueByCategoryForChart,
 }) {
   // ── Client-side filtering ─────────────────────────────────
   // Donut: when a specific platform is selected, show only that platform in the donut
@@ -413,11 +419,12 @@ export default function ExecutiveTab({
   }
 
   const handleCategoryDrill = () => {
-    if (!revenueByCategory?.length) return
+    const catData = revenueByCategoryForChart || revenueByCategory
+    if (!catData?.length) return
     openPanel({
       title:    'Revenue by Business Category',
-      subtitle: 'All categories · sorted by total profit',
-      rows: revenueByCategory,
+      subtitle: activePlatform !== 'All' ? `${activePlatform} · ${activeYear !== 'All' ? activeYear : 'All years'}` : 'All categories · sorted by total profit',
+      rows: catData,
       columns: [
         { key: 'business_category', label: 'Category',   align: 'left' },
         { key: 'total_revenue',     label: 'Revenue',    format: 'currency', bar: true, barColor: '#8b5cf6' },
@@ -430,11 +437,12 @@ export default function ExecutiveTab({
   }
 
   const handleMonthlyDrill = () => {
-    if (!monthlyRevenue?.length) return
+    const mData = monthlyRevenueForChart || monthlyRevenue
+    if (!mData?.length) return
     openPanel({
       title:    'Monthly Revenue Trend',
-      subtitle: 'Revenue and profit by month',
-      rows: [...monthlyRevenue].reverse(),
+      subtitle: activePlatform !== 'All' ? `${activePlatform} · ${activeYear !== 'All' ? activeYear : 'All years'}` : 'Revenue and profit by month',
+      rows: [...mData].reverse(),
       columns: [
         { key: 'month_name',       label: 'Month',      align: 'left' },
         { key: 'year',             label: 'Year',       mono: true    },
@@ -550,7 +558,7 @@ export default function ExecutiveTab({
           subtitle="Monthly revenue vs profit trend"
           onClick={handleMonthlyDrill}
         >
-          <MonthlyAreaChart data={monthlyRevenue} />
+          <MonthlyAreaChart data={monthlyRevenueForChart || monthlyRevenue} />
         </ChartCard>
       </div>
 
@@ -564,7 +572,7 @@ export default function ExecutiveTab({
           subtitle="Top 10 categories by revenue"
           onClick={handleCategoryDrill}
         >
-          <CategoryBarChart data={revenueByCategory} />
+          <CategoryBarChart data={revenueByCategoryForChart || revenueByCategory} />
         </ChartCard>
 
         <KeyInsights

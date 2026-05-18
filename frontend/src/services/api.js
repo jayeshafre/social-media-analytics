@@ -59,6 +59,10 @@ export async function fetchRevenueByCategoryPlatform() {
   const response = await client.get('/revenue/by-category-platform')
   return response.data.data
 }
+export async function fetchRevenueByCategoryPlatformYear() {
+  const response = await client.get('/revenue/by-category-platform-year')
+  return response.data.data
+}
 export async function fetchCampaignsByPlatformYear() {
   const response = await client.get('/revenue/campaigns-by-platform-year')
   return response.data.data

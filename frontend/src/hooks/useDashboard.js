@@ -26,6 +26,8 @@ import {
   fetchSentimentByPlatform,
   fetchEngagementProgression,
   fetchRevenueByCategory,
+  fetchRevenueByCategoryPlatform,
+  fetchRevenueByCategoryPlatformYear,
   fetchCampaignsByPlatformYear,
   fetchSmartAlerts,
   fetchMLForecast,
@@ -47,6 +49,8 @@ export function useDashboard() {
   const [revenueByPlatform,       setRevenueByPlatform]       = useState([])
   const [monthlyRevenue,          setMonthlyRevenue]           = useState([])
   const [revenueByCategory,       setRevenueByCategory]        = useState([])
+  const [revenueByCategoryPlatform, setRevenueByCategoryPlatform] = useState([])
+  const [revenueByCategoryPlatformYear, setRevenueByCategoryPlatformYear] = useState([])
   const [campaignData,            setCampaignData]             = useState([])
   const [campaignByObjective,     setCampaignByObjective]      = useState([])
   const [influencerData,          setInfluencerData]           = useState([])
@@ -74,7 +78,7 @@ export function useDashboard() {
 
     try {
       const [
-        rev, monthly, revCat,
+        rev, monthly, revCat, revCatPlatform, revCatPlatformYear,
         campaigns, objective, influencer,
         ageGroups, devices, gender,
         funnel, cac, yoy, refund,
@@ -85,6 +89,8 @@ export function useDashboard() {
         fetchRevenueByPlatform(),
         fetchMonthlyRevenue(y),
         fetchRevenueByCategory(),
+        fetchRevenueByCategoryPlatform(),
+        fetchRevenueByCategoryPlatformYear(),
         fetchCampaignPerformance(p),
         fetchCampaignByObjective(),
         fetchInfluencerImpact(),
@@ -110,6 +116,8 @@ export function useDashboard() {
       setRevenueByPlatform(val(rev))
       setMonthlyRevenue(val(monthly))
       setRevenueByCategory(val(revCat))
+      setRevenueByCategoryPlatform(val(revCatPlatform))
+      setRevenueByCategoryPlatformYear(val(revCatPlatformYear))
       setCampaignData(val(campaigns))
       setCampaignByObjective(val(objective))
       setInfluencerData(val(influencer))
@@ -197,6 +205,89 @@ export function useDashboard() {
   // monthlyRevenue is already server-filtered by year via fetchMonthlyRevenue(year)
   const filteredMonthly = monthlyRevenue
 
+  // ── filteredMonthlyForChart ───────────────────────────────────────────────
+  // Source: campaignsByPlatformYear — has platform + year + month + revenue + profit
+  // When platform='All': use monthlyRevenue (server already year-filtered)
+  // When platform is selected: aggregate from campaignsByPlatformYear by month
+  const filteredMonthlyForChart = (() => {
+    if (activePlatform === 'All') return monthlyRevenue
+
+    // Filter by platform (and year if set)
+    let rows = campaignsByPlatformYear.filter(r => r.platform === activePlatform)
+    if (activeYear !== 'All') rows = rows.filter(r => String(r.year) === String(activeYear))
+
+    // Group by year+month and sum — preserves month_name for chart labels
+    const byMonth = {}
+    rows.forEach(r => {
+      const key = `${r.year}-${String(r.month).padStart(2, '0')}`
+      if (!byMonth[key]) byMonth[key] = {
+        year: r.year, month: r.month,
+        // Normalise to monthly_* so MonthlyAreaChart always reads the same field names
+        // regardless of whether data came from /monthly-trend or campaignsByPlatformYear
+        month_name: r.month_name || r.month_name,
+        monthly_revenue: 0, monthly_profit: 0,
+        monthly_ad_spend: 0, campaigns_run: 0,
+      }
+      // campaignsByPlatformYear uses total_revenue / total_profit column names
+      byMonth[key].monthly_revenue  += parseFloat(r.total_revenue)  || parseFloat(r.monthly_revenue)  || 0
+      byMonth[key].monthly_profit   += parseFloat(r.total_profit)   || parseFloat(r.monthly_profit)   || 0
+      byMonth[key].monthly_ad_spend += parseFloat(r.total_ad_spend) || parseFloat(r.monthly_ad_spend) || 0
+      byMonth[key].campaigns_run    += parseFloat(r.total_campaigns)|| parseFloat(r.campaigns_run)    || 0
+    })
+    return Object.values(byMonth).sort((a, b) =>
+      a.year !== b.year ? a.year - b.year : a.month - b.month)
+  })()
+
+  // ── filteredCategoryForChart ──────────────────────────────────────────────
+  // Source: revenueByCategoryPlatformYear — has platform + category + year + revenue
+  // This is REAL data, no scaling/approximation.
+  // Filters applied client-side for instant response without extra API calls.
+  const filteredCategoryForChart = (() => {
+    // Case 1: No filters at all — use simple revenueByCategory (all platforms, all years)
+    if (activePlatform === 'All' && activeYear === 'All') return revenueByCategory
+
+    // Case 2: Platform filter only (no year) — use revenueByCategoryPlatform
+    if (activePlatform !== 'All' && activeYear === 'All') {
+      return revenueByCategoryPlatform
+        .filter(r => r.platform === activePlatform)
+        .sort((a, b) => parseFloat(b.total_revenue) - parseFloat(a.total_revenue))
+    }
+
+    // Case 3: Year filter only (no platform) — aggregate across all platforms for that year
+    if (activePlatform === 'All' && activeYear !== 'All') {
+      const rows = revenueByCategoryPlatformYear.filter(r => String(r.year) === String(activeYear))
+      // Group by business_category and sum across platforms
+      const byCategory = {}
+      rows.forEach(r => {
+        const cat = r.business_category
+        if (!byCategory[cat]) byCategory[cat] = {
+          business_category: cat,
+          total_revenue: 0, total_profit: 0,
+          total_campaigns: 0, avg_roi: 0, avg_roas: 0, _count: 0,
+        }
+        byCategory[cat].total_revenue  += parseFloat(r.total_revenue)  || 0
+        byCategory[cat].total_profit   += parseFloat(r.total_profit)   || 0
+        byCategory[cat].total_campaigns += parseFloat(r.total_campaigns) || 0
+        byCategory[cat].avg_roi        += parseFloat(r.avg_roi)        || 0
+        byCategory[cat].avg_roas       += parseFloat(r.avg_roas)       || 0
+        byCategory[cat]._count         += 1
+      })
+      return Object.values(byCategory).map(r => ({
+        ...r,
+        avg_roi:  r._count > 0 ? r.avg_roi  / r._count : 0,
+        avg_roas: r._count > 0 ? r.avg_roas / r._count : 0,
+      })).sort((a, b) => parseFloat(b.total_revenue) - parseFloat(a.total_revenue))
+    }
+
+    // Case 4: Both platform AND year selected — direct filter from granular dataset
+    return revenueByCategoryPlatformYear
+      .filter(r =>
+        r.platform === activePlatform &&
+        String(r.year) === String(activeYear)
+      )
+      .sort((a, b) => parseFloat(b.total_revenue) - parseFloat(a.total_revenue))
+  })()
+
   return {
     // Filters
     activePlatform, activeYear, activeTab,
@@ -204,7 +295,10 @@ export function useDashboard() {
     platforms: PLATFORMS, years: YEARS, tabs: TABS,
 
     // Data
-    revenueByPlatform, monthlyRevenue: filteredMonthly, revenueByCategory,
+    revenueByPlatform, monthlyRevenue: filteredMonthly,
+    monthlyRevenueForChart: filteredMonthlyForChart,
+    revenueByCategory, revenueByCategoryForChart: filteredCategoryForChart,
+    revenueByCategoryPlatform, revenueByCategoryPlatformYear,
     campaignData, campaignByObjective, influencerData,
     audienceAge, audienceDevice, audienceGender,
     funnelData, cacData, yoyData, refundData,

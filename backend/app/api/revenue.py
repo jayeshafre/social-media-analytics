@@ -254,3 +254,34 @@ def get_campaigns_by_platform_year(db: Session = Depends(get_db)):
         data=data,
         total_records=len(data),
     )
+
+@router.get("/by-category-platform-year", response_model=APIResponse)
+def get_revenue_by_category_platform_year(db: Session = Depends(get_db)):
+    """
+    Revenue by category WITH platform AND year breakdown.
+    Enables both platform slicer and year slicer to filter the category chart.
+    """
+    query = text("""
+        SELECT
+            cam.platform,
+            b.business_category,
+            c.year,
+            COUNT(cam.campaign_id)                        AS total_campaigns,
+            ROUND(SUM(cam.revenue_generated)::NUMERIC, 2) AS total_revenue,
+            ROUND(SUM(cam.profit_generated)::NUMERIC, 2)  AS total_profit,
+            ROUND(AVG(cam.roi)::NUMERIC, 4)               AS avg_roi,
+            ROUND(AVG(cam.roas)::NUMERIC, 4)              AS avg_roas
+        FROM campaigns cam
+        JOIN businesses b ON cam.business_id = b.business_id
+        JOIN calendar   c ON cam.start_date  = c.date
+        GROUP BY cam.platform, b.business_category, c.year
+        ORDER BY cam.platform, c.year, total_revenue DESC
+    """)
+    rows = db.execute(query).mappings().all()
+    data = [dict(r) for r in rows]
+    return APIResponse(
+        success=True,
+        message="Revenue by category, platform and year fetched",
+        data=data,
+        total_records=len(data),
+    )
