@@ -1,22 +1,20 @@
 /**
  * DashboardView.jsx
  *
- * Main dashboard orchestrator. Renders:
- * - Top navigation bar (title, last refresh, refresh btn)
- * - Tab bar: Executive | Campaign | Platform | Audience | Alerts
- * - FilterBar: Platform pills + Year pills
- * - Active tab content
- * - Slide-in DrillDownPanel on any chart/KPI click
+ * Main dashboard orchestrator.
  *
- * All data comes from useDashboard().
- * All drill-down state managed by useDrillDown().
- * Chart.js loaded from CDN once on mount.
+ * KEY CHANGE from previous version:
+ * - Reads active tab from URL via useParams() → /dashboard/:tab
+ * - Calls setActiveTab() in useDashboard() to keep hook in sync
+ * - TabBar clicks now use navigate() to update the URL (back button works!)
+ * - Everything else (charts, filters, drill-down) is unchanged
  *
- * Theme: matches your existing dark app exactly.
- * Background: #080d18 | Accent: #0ea5e9 | Font: Syne + DM Mono
+ * Route: /dashboard/:tab
+ * Valid :tab values: executive | campaign | platform | audience | alerts
  */
 
 import { useEffect, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useDashboard }  from '../../hooks/useDashboard'
 import { useDrillDown }  from '../../hooks/useDrillDown'
 import FilterBar         from './shared/FilterBar'
@@ -27,36 +25,40 @@ import CampaignTab       from './tabs/CampaignTab'
 import PlatformTab       from './tabs/PlatformTab'
 import AudienceTab       from './tabs/AudienceTab'
 
+// Valid tabs — any other :tab value falls back to executive
+const VALID_TABS = ['executive', 'campaign', 'platform', 'audience', 'alerts']
+
 // ── Load Chart.js from CDN once ───────────────────────────────
 function useChartJS() {
   const [ready, setReady] = useState(!!window.Chart)
   useEffect(() => {
     if (window.Chart) { setReady(true); return }
-    const script  = document.createElement('script')
-    script.src    = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'
-    script.onload = () => setReady(true)
+    const script   = document.createElement('script')
+    script.src     = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'
+    script.onload  = () => setReady(true)
     script.onerror = () => console.error('[Dashboard] Chart.js failed to load from CDN')
     document.head.appendChild(script)
   }, [])
   return ready
 }
 
-// ── Tab bar ───────────────────────────────────────────────────
+// ── Tab config ────────────────────────────────────────────────
 const TAB_CONFIG = [
-  { id: 'executive', label: '▦ Executive',  title: 'Executive Summary',           subtitle: 'Overview of key performance metrics' },
-  { id: 'campaign',  label: '◈ Campaigns',  title: 'Campaign Analytics',          subtitle: 'CTR, CPC, ROAS and conversion analysis' },
-  { id: 'platform',  label: '⬡ Platforms',  title: 'Platform Comparison',         subtitle: 'Cross-platform performance benchmarking' },
-  { id: 'audience',  label: '◉ Audience',   title: 'Audience Insights',           subtitle: 'Age, device, gender and sentiment analysis' },
-  { id: 'alerts',    label: '⚡ Alerts',    title: 'Smart Alerts',               subtitle: 'AI-generated performance warnings' },
+  { id: 'executive', label: '▦ Executive',  title: 'Executive Summary',    subtitle: 'Overview of key performance metrics'        },
+  { id: 'campaign',  label: '◈ Campaigns',  title: 'Campaign Analytics',   subtitle: 'CTR, CPC, ROAS and conversion analysis'     },
+  { id: 'platform',  label: '⬡ Platforms',  title: 'Platform Comparison',  subtitle: 'Cross-platform performance benchmarking'    },
+  { id: 'audience',  label: '◉ Audience',   title: 'Audience Insights',    subtitle: 'Age, device, gender and sentiment analysis' },
+  { id: 'alerts',    label: '⚡ Alerts',    title: 'Smart Alerts',        subtitle: 'AI-generated performance warnings'           },
 ]
 
-function TabBar({ active, onChange }) {
+// ── Tab bar — now uses navigate() instead of setActiveTab() directly ──
+function TabBar({ active, onTabClick }) {
   return (
     <div style={{ display: 'flex', gap: '3px' }}>
       {TAB_CONFIG.map(t => (
         <button
           key={t.id}
-          onClick={() => onChange(t.id)}
+          onClick={() => onTabClick(t.id)}
           style={{
             padding:      '7px 14px',
             borderRadius: '8px',
@@ -98,11 +100,7 @@ function TabBar({ active, onChange }) {
 function LoadingSkeleton() {
   return (
     <div>
-      {/* KPI row skeleton */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '10px', marginBottom: '16px',
-      }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' }}>
         {[1, 2, 3, 4].map(i => (
           <div key={i} style={{
             height: '90px', borderRadius: '12px',
@@ -112,7 +110,6 @@ function LoadingSkeleton() {
           }} />
         ))}
       </div>
-      {/* Chart rows skeleton */}
       {[[1, 1.6], [1.6, 1]].map((cols, ri) => (
         <div key={ri} style={{
           display: 'grid',
@@ -161,14 +158,11 @@ function ErrorState({ error, onRetry }) {
           color: '#38bdf8', fontFamily: 'DM Mono, monospace',
           fontSize: '11px', cursor: 'pointer',
         }}
-      >
-        ↺ Try Again
-      </button>
+      >↺ Try Again</button>
     </div>
   )
 }
 
-// ── Chart.js not ready yet ────────────────────────────────────
 function ChartLoadingNote() {
   return (
     <div style={{
@@ -182,7 +176,9 @@ function ChartLoadingNote() {
 
 // ── Main DashboardView ────────────────────────────────────────
 export default function DashboardView() {
-  const chartJSReady = useChartJS()
+  const { tab: tabParam }  = useParams()
+  const navigate           = useNavigate()
+  const chartJSReady       = useChartJS()
   const { panel, openPanel, closePanel } = useDrillDown()
 
   const {
@@ -200,6 +196,28 @@ export default function DashboardView() {
     setActiveTab, handleYearChange, handlePlatformChange, refresh,
   } = useDashboard()
 
+  // ── Sync URL → hook ──────────────────────────────────────────
+  // When the URL changes (user clicks sidebar nav, browser back/forward,
+  // or direct link), update the hook's activeTab to match.
+  useEffect(() => {
+    const resolved = VALID_TABS.includes(tabParam) ? tabParam : 'executive'
+    if (resolved !== activeTab) {
+      setActiveTab(resolved)
+    }
+    // Redirect invalid tab params to /dashboard/executive
+    if (tabParam && !VALID_TABS.includes(tabParam)) {
+      navigate('/dashboard/executive', { replace: true })
+    }
+  }, [tabParam]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Tab clicks → URL ─────────────────────────────────────────
+  // Sidebar handles its own navigation. The tab bar inside DashboardView
+  // also navigates via the URL — this keeps the URL as the single source
+  // of truth so browser back/forward and deep links all work correctly.
+  const handleTabClick = (tabId) => {
+    navigate(`/dashboard/${tabId}`)
+  }
+
   const activeTabConfig = TAB_CONFIG.find(t => t.id === activeTab) || TAB_CONFIG[0]
 
   return (
@@ -213,17 +231,17 @@ export default function DashboardView() {
       position:      'relative',
     }}>
 
-      {/* Grid texture */}
+      {/* Grid texture overlay */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
         backgroundImage: `
           linear-gradient(rgba(14,165,233,0.025) 1px, transparent 1px),
           linear-gradient(90deg, rgba(14,165,233,0.025) 1px, transparent 1px)
         `,
-        backgroundSize: '48px 48px',
+        backgroundSize: '40px 40px',
       }} />
 
-      {/* ── Top Bar ─────────────────────────────────────── */}
+      {/* ── Top bar ─────────────────────────────────────── */}
       <div style={{
         display:        'flex',
         alignItems:     'center',
@@ -235,33 +253,21 @@ export default function DashboardView() {
         backdropFilter: 'blur(8px)',
         background:     'rgba(5,10,18,0.7)',
       }}>
-        {/* Title block */}
         <div>
-          <div style={{
-            fontSize: '14px', fontWeight: 700,
-            color: '#f1f5f9', fontFamily: 'Syne, sans-serif',
-          }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#f1f5f9', fontFamily: 'Syne, sans-serif' }}>
             {activeTabConfig.title}
           </div>
-          <div style={{
-            fontSize: '10px', color: '#334155',
-            fontFamily: 'DM Mono, monospace', marginTop: '1px',
-          }}>
+          <div style={{ fontSize: '10px', color: '#334155', fontFamily: 'DM Mono, monospace', marginTop: '1px' }}>
             {activeTabConfig.subtitle}
           </div>
         </div>
 
-        {/* Right controls */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {lastRefreshed && (
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '9px', color: '#1e3a5f', fontFamily: 'DM Mono, monospace' }}>
-                Last Refresh
-              </div>
+              <div style={{ fontSize: '9px', color: '#1e3a5f', fontFamily: 'DM Mono, monospace' }}>Last Refresh</div>
               <div style={{ fontSize: '10px', color: '#334155', fontFamily: 'DM Mono, monospace' }}>
-                {lastRefreshed.toLocaleDateString()} {lastRefreshed.toLocaleTimeString([], {
-                  hour: '2-digit', minute: '2-digit',
-                })}
+                {lastRefreshed.toLocaleDateString()} {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
           )}
@@ -290,12 +296,7 @@ export default function DashboardView() {
               e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
             }}
           >
-            <span style={{
-              display: 'inline-block',
-              animation: isLoading ? 'spin 1s linear infinite' : 'none',
-            }}>
-              ↺
-            </span>
+            <span style={{ display: 'inline-block', animation: isLoading ? 'spin 1s linear infinite' : 'none' }}>↺</span>
             {isLoading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
@@ -315,9 +316,8 @@ export default function DashboardView() {
         backdropFilter: 'blur(4px)',
         background:     'rgba(5,10,18,0.4)',
       }}>
-        <TabBar active={activeTab} onChange={setActiveTab} />
+        <TabBar active={activeTab} onTabClick={handleTabClick} />
 
-        {/* Live indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <div style={{
             width: '5px', height: '5px', borderRadius: '50%',
@@ -325,10 +325,7 @@ export default function DashboardView() {
             boxShadow: '0 0 6px rgba(34,197,94,0.5)',
             animation: 'subtlePulse 2s ease-in-out infinite',
           }} />
-          <span style={{
-            fontSize: '9px', color: '#1e3a5f',
-            fontFamily: 'DM Mono, monospace', letterSpacing: '0.06em',
-          }}>
+          <span style={{ fontSize: '9px', color: '#1e3a5f', fontFamily: 'DM Mono, monospace', letterSpacing: '0.06em' }}>
             LIVE · PostgreSQL
           </span>
         </div>
@@ -336,24 +333,18 @@ export default function DashboardView() {
 
       {/* ── Scrollable content area ──────────────────────── */}
       <div style={{
-        flex:       1,
-        overflowY:  'auto',
-        padding:    '16px 24px 32px',
-        zIndex:     1,
+        flex:      1,
+        overflowY: 'auto',
+        padding:   '16px 24px 32px',
+        zIndex:    1,
         scrollbarWidth: 'thin',
         scrollbarColor: '#0f2744 transparent',
       }}>
-
-        {/* Error */}
         {error && <ErrorState error={error} onRetry={refresh} />}
-
-        {/* Loading */}
         {!error && isLoading && <LoadingSkeleton />}
 
-        {/* Content */}
         {!error && !isLoading && (
           <>
-            {/* Filter bar — shown on all tabs except alerts */}
             {activeTab !== 'alerts' && (
               <FilterBar
                 platforms={platforms}
@@ -365,7 +356,6 @@ export default function DashboardView() {
               />
             )}
 
-            {/* ── Executive Tab ─── */}
             {activeTab === 'executive' && (
               chartJSReady
                 ? <ExecutiveTab
@@ -383,7 +373,6 @@ export default function DashboardView() {
                 : <ChartLoadingNote />
             )}
 
-            {/* ── Campaign Tab ─── */}
             {activeTab === 'campaign' && (
               chartJSReady
                 ? <CampaignTab
@@ -396,7 +385,6 @@ export default function DashboardView() {
                 : <ChartLoadingNote />
             )}
 
-            {/* ── Platform Tab ─── */}
             {activeTab === 'platform' && (
               chartJSReady
                 ? <PlatformTab
@@ -410,7 +398,6 @@ export default function DashboardView() {
                 : <ChartLoadingNote />
             )}
 
-            {/* ── Audience Tab ─── */}
             {activeTab === 'audience' && (
               chartJSReady
                 ? <AudienceTab
@@ -424,7 +411,6 @@ export default function DashboardView() {
                 : <ChartLoadingNote />
             )}
 
-            {/* ── Alerts Tab ─── */}
             {activeTab === 'alerts' && (
               <AlertsPanel alerts={alerts} />
             )}
@@ -432,10 +418,9 @@ export default function DashboardView() {
         )}
       </div>
 
-      {/* ── Drill-Down Panel (slide-in from right) ─── */}
+      {/* Drill-down panel */}
       <DrillDownPanel panel={panel} onClose={closePanel} />
 
-      {/* Spin keyframe for refresh icon */}
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }

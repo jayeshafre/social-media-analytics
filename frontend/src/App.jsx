@@ -1,12 +1,30 @@
-import { useState, useCallback } from 'react'
-import { useChat } from './hooks/useChat'
+/**
+ * App.jsx
+ *
+ * Root application shell.
+ *
+ * Route map:
+ *   /chat                   → ChatPanel  (default)
+ *   /dashboard/:tab         → DashboardView
+ *   *                       → redirect to /chat
+ *
+ * Sidebar is always rendered. It reads the current route via
+ * useLocation() to decide which mode to show — no props needed
+ * for that decision. Chat-related callbacks still flow as props
+ * so Sidebar can trigger navigation + session changes together.
+ */
+
+import { useCallback } from 'react'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { useChat }        from './hooks/useChat'
 import { useChatHistory } from './hooks/useChatHistory'
-import Sidebar from './components/Sidebar'
-import ChatPanel from './components/ChatPanel'
-import DashboardView from './components/dashboard/DashboardView'
+import Sidebar            from './components/Sidebar'
+import ChatPanel          from './components/ChatPanel'
+import DashboardView      from './components/dashboard/DashboardView'
 
 export default function App() {
-  const [showDashboard, setShowDashboard] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const { history, upsertEntry, removeEntry } = useChatHistory()
 
@@ -25,40 +43,60 @@ export default function App() {
     loadSession,
   } = useChat({ onExchange: handleExchange })
 
+  // ── Sidebar callbacks ────────────────────────────────────────
+
   const handleNewChat = useCallback(() => {
     clearConversation()
-    setShowDashboard(false)
-  }, [clearConversation])
+    navigate('/chat')
+  }, [clearConversation, navigate])
 
   const handleSelectChat = useCallback((entry) => {
     loadSession(entry)
-    setShowDashboard(false)
-  }, [loadSession])
+    navigate('/chat')
+  }, [loadSession, navigate])
 
   const handleDeleteChat = useCallback((id) => {
     removeEntry(id)
     if (id === sessionId) clearConversation()
   }, [removeEntry, sessionId, clearConversation])
 
-  const handleToggleDashboard = useCallback(() => {
-    setShowDashboard(prev => !prev)
-  }, [])
+  // Navigate to a specific dashboard tab from the sidebar nav
+  const handleDashboardTabSelect = useCallback((tabId) => {
+    navigate(`/dashboard/${tabId}`)
+  }, [navigate])
+
+  // Go back to chat from dashboard sidebar button
+  const handleGoToChat = useCallback(() => {
+    navigate('/chat')
+  }, [navigate])
+
+  // Derive active dashboard tab from the URL for the sidebar
+  const isDashboard   = location.pathname.startsWith('/dashboard')
+  const activeTabInUrl = isDashboard
+    ? location.pathname.split('/dashboard/')[1] || 'executive'
+    : null
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+
+      {/* Sidebar is always visible — it adapts based on current route */}
       <Sidebar
+        // Chat props
         history={history}
         activeSessionId={sessionId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
         onDeleteChat={handleDeleteChat}
-        showDashboard={showDashboard}
-        onToggleDashboard={handleToggleDashboard}
+        // Route state
+        isDashboard={isDashboard}
+        activeDashboardTab={activeTabInUrl}
+        onDashboardTabSelect={handleDashboardTabSelect}
+        onGoToChat={handleGoToChat}
       />
 
-      {showDashboard
-        ? <DashboardView />
-        : (
+      {/* Main content area — driven entirely by the URL */}
+      <Routes>
+        <Route path="/chat" element={
           <ChatPanel
             messages={messages}
             sessionId={sessionId}
@@ -68,8 +106,21 @@ export default function App() {
             sendMessage={sendMessage}
             clearConversation={clearConversation}
           />
-        )
-      }
+        } />
+
+        {/*
+          /dashboard/:tab — the :tab param tells DashboardView
+          which tab to activate. DashboardView reads it via
+          useParams() so no prop drilling needed.
+        */}
+        <Route path="/dashboard/:tab" element={<DashboardView />} />
+
+        {/* Redirect /dashboard (no tab) → executive */}
+        <Route path="/dashboard" element={<Navigate to="/dashboard/executive" replace />} />
+
+        {/* Catch-all → chat */}
+        <Route path="*" element={<Navigate to="/chat" replace />} />
+      </Routes>
     </div>
   )
 }

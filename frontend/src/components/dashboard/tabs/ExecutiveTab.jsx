@@ -156,7 +156,7 @@ function MonthlyAreaChart({ data }) {
   const chartRef = useRef(null)
 
   // Stable cache key — forces chart destroy+recreate when platform/year changes
-  const dataKey = data?.map(r => `${r.year}-${r.month}-${r.monthly_revenue}`).join('|') || ''
+  const dataKey = (data?.map(r => `${r.year}-${r.month}-${r.monthly_revenue}-${r.monthly_profit}`).join('|') || '') + String(data?.length)
 
   useEffect(() => {
     if (!ref.current || !data?.length || !window.Chart) return
@@ -244,7 +244,7 @@ function CategoryBarChart({ data }) {
   const ref = useRef(null)
   const chartRef = useRef(null)
 
-  const dataKey = data?.map(r => `${r.business_category}-${r.total_revenue}`).join('|') || ''
+  const dataKey = (data?.map(r => `${r.business_category}-${r.total_revenue}-${r.total_profit}`).join('|') || '') + String(data?.length)
 
   useEffect(() => {
     if (!ref.current || !data?.length || !window.Chart) return
@@ -419,7 +419,7 @@ export default function ExecutiveTab({
   }
 
   const handleCategoryDrill = () => {
-    const catData = revenueByCategoryForChart || revenueByCategory
+    const catData = (revenueByCategoryForChart?.length ? revenueByCategoryForChart : null) || revenueByCategory
     if (!catData?.length) return
     openPanel({
       title:    'Revenue by Business Category',
@@ -558,7 +558,7 @@ export default function ExecutiveTab({
           subtitle="Monthly revenue vs profit trend"
           onClick={handleMonthlyDrill}
         >
-          <MonthlyAreaChart data={monthlyRevenueForChart || monthlyRevenue} />
+          <MonthlyAreaChart data={(monthlyRevenueForChart?.length ? monthlyRevenueForChart : null) || monthlyRevenue} />
         </ChartCard>
       </div>
 
@@ -572,7 +572,7 @@ export default function ExecutiveTab({
           subtitle="Top 10 categories by revenue"
           onClick={handleCategoryDrill}
         >
-          <CategoryBarChart data={revenueByCategoryForChart || revenueByCategory} />
+          <CategoryBarChart data={(revenueByCategoryForChart?.length ? revenueByCategoryForChart : null) || revenueByCategory} />
         </ChartCard>
 
         <KeyInsights
